@@ -18,7 +18,8 @@ int main(int argc, char *argv[])
     int sockfd, portno, n;
     struct sockaddr_in serv_addr;
     struct hostent *server;
-    char buffer[256];
+    int buffer_size = 10240;
+    char buffer[buffer_size];
     if(argc < 3)
     {
         fprintf(stderr, "usage %s hostname port", argv[0]);
@@ -45,6 +46,7 @@ int main(int argc, char *argv[])
     printf("Please enter the message:");
     bzero(buffer, 256);
     fgets(buffer, 255, stdin);
+    //buffer = "GET / ";
     n = write(sockfd, buffer, strlen(buffer));
     if(n<0)
         err("ERROR writing to socket.");
