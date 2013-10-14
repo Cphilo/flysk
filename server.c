@@ -8,7 +8,7 @@
 
 #define LEN 30
 #define EXT_LEN 10
-#define BUFFER_SIZE 10240
+#define BUFFER_SIZE 1024
 
 void err(const char *msg);
 void handle_req(int sock);
@@ -71,49 +71,55 @@ void handle_req(int sock)
 {
     int n, i, ext_index;
     char buffer[BUFFER_SIZE];
-    char *http_me, *res, *req_file, *ext;
+    char http_me[10], req_file[100];
+    char *ext;
     int fp;
     bzero(buffer, BUFFER_SIZE);
     n = read(sock, buffer, BUFFER_SIZE);
     if(n<0)
         err("ERR reading from socket.");
     printf("Here is the message:%s\n", buffer);
-    sscanf(buffer, "%s%s", http_me, req_file);
-    printf("http method:%s\n", http_me);
+    sscanf(buffer, "%s", http_me);
+    //printf("http method:%s\n", http_me);
     if(!strcmp(http_me, "GET") || !strcmp(http_me, "POST"))
     {
-        //sscanf(buffer, "%s", req_file);
+        sscanf(buffer, "%*s%s", req_file);
+        //printf("req_file:%s\n", req_file);
     } else {
         not_implemented(sock);
         return;
     }
     ext = index(req_file, '.');
-    for(i=0, ext++, ext_index=-1;i<EXT_LEN;i++) {
-        if(!strcmp(EXT[i], ext)) {
-            ext_index=i;
-            break;
+    printf("ext:%s\n", ext);
+    ext_index = -1;
+    if(ext != NULL) {
+        for(i=0, ext++;i<EXT_LEN;i++) {
+            if(!strcmp(EXT[i], ext)) {
+                ext_index=i;
+                break;
+            }
         }
     }
-    if(ext_index<0) {
-        req_file = "index.html";
-    }
+    if(ext_index<0)
+        strcpy(req_file, "index.html");
     if(access(req_file, R_OK)!=-1) {
         fp = open(req_file, 'r');
-        if(read(fp, res, BUFFER_SIZE)>0) {
-            send_res(sock, res, 200, "OK", CON_TYPE[ext_index]);
+        if(read(fp, buffer, BUFFER_SIZE)>0) {
+            send_res(sock, buffer, 200, "OK", CON_TYPE[ext_index]);
             return;
         } 
     }
     not_found(sock);
+    return;
 }
 
 
 void send_res(int sock, char *content, int stacode, char *stadsp, char *content_type)
 {
-    char *res;
+    char res[500];
     int n;
     sprintf(res, "HTTP/1.1 %d %s\r\nServer: Flysk Web Server\r\nContent-Length: %d\r\nConnection: close\r\nContent-Type: %s\r\n\r\n", stacode, stadsp, strlen(content), content_type);
-    printf("response:%s\n", res);
+    //printf("response:%s\n", res);
     n = write(sock, res, strlen(res));
     if(n<0)err("ERR writing socket.");
     n = write(sock, content, strlen(content));

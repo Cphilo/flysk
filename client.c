@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#define BUFFER_SIZE 1024
+
 void err(const char *msg)
 {
     perror(msg);
@@ -18,8 +20,7 @@ int main(int argc, char *argv[])
     int sockfd, portno, n;
     struct sockaddr_in serv_addr;
     struct hostent *server;
-    int buffer_size = 10240;
-    char buffer[buffer_size];
+    char buffer[BUFFER_SIZE];
     if(argc < 3)
     {
         fprintf(stderr, "usage %s hostname port", argv[0]);
@@ -44,14 +45,14 @@ int main(int argc, char *argv[])
     if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr))<0)
         err("ERROR connecting");
     printf("Please enter the message:");
-    bzero(buffer, 256);
-    fgets(buffer, 255, stdin);
+    bzero(buffer, BUFFER_SIZE);
+    fgets(buffer, BUFFER_SIZE, stdin);
     //buffer = "GET / ";
     n = write(sockfd, buffer, strlen(buffer));
     if(n<0)
         err("ERROR writing to socket.");
-    bzero(buffer, 256);
-    n = read(sockfd, buffer, 255);
+    bzero(buffer, BUFFER_SIZE);
+    n = read(sockfd, buffer, BUFFER_SIZE);
     if(n<0)
         err("ERROR reading from socket");
     printf("%s", buffer);
