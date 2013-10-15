@@ -6,9 +6,28 @@
 #include <netinet/in.h>
 #include <unistd.h>
 
-#define LEN 30
 #define EXT_LEN 10
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 1024*8
+
+struct {
+    char *ext;
+    char *con_type;
+}extensions [] = {
+    {"gif", "image/gif" },
+    {"jpg", "image/jpg" },
+    {"jpeg","image/jpeg"},
+    {"png", "image/png" },
+    {"ico", "image/ico" },
+    {"zip", "image/zip" },
+    {"gz",  "image/gz"  },
+    {"tar", "image/tar" },
+    {"htm", "text/html" },
+    {"html","text/html" },
+    {"css", "text/css"  },
+    {"xml", "text/xml"  },
+    {"txt", "text/plain" },
+};
+
 
 void err(const char *msg);
 void handle_req(int sock);
@@ -16,8 +35,6 @@ void not_implemented(int sock);
 void not_found(int sock);
 void send_res(int sock, char *content, int stacode, char *stadsp, char *content_type);
 
-char EXT[][LEN] = {"htm", "html", "xml", "txt", "css", "png", "gif", "jpg", "jpeg", "zip"};
-char CON_TYPE[][LEN] = {"text/html", "text/html", "text/xml", "text/plain", "text/css", "image/png", "image/gif", "image/jpg", "image/jpeg", "application/zip"};
 
 void err(const char *msg)
 {
@@ -72,8 +89,8 @@ void handle_req(int sock)
     int n, i, ext_index;
     char buffer[BUFFER_SIZE];
     char http_me[10], req_file[100];
-    char *ext;
-    int fp;
+    char *ext, *tmp;
+    int fp, ret;
     bzero(buffer, BUFFER_SIZE);
     n = read(sock, buffer, BUFFER_SIZE);
     if(n<0)
@@ -81,9 +98,16 @@ void handle_req(int sock)
     printf("Here is the message:%s\n", buffer);
     sscanf(buffer, "%s", http_me);
     //printf("http method:%s\n", http_me);
-    if(!strcmp(http_me, "GET") || !strcmp(http_me, "POST"))
+    if(!strcasecmp(http_me, "GET"))
     {
         sscanf(buffer, "%*s%s", req_file);
+        if(req_file[0] == '/') {
+            tmp = (char *)malloc(strlen(req_file)-1);
+            strcpy(tmp, req_file);
+            strcpy(req_file, ++tmp);
+            if(strlen(req_file) == 0)
+                strcpy(req_file, "index.html");
+        }
         //printf("req_file:%s\n", req_file);
     } else {
         not_implemented(sock);
@@ -94,7 +118,7 @@ void handle_req(int sock)
     ext_index = -1;
     if(ext != NULL) {
         for(i=0, ext++;i<EXT_LEN;i++) {
-            if(!strcmp(EXT[i], ext)) {
+            if(!strcmp(extensions[i].ext, ext)) {
                 ext_index=i;
                 break;
             }
@@ -104,10 +128,16 @@ void handle_req(int sock)
         strcpy(req_file, "index.html");
     if(access(req_file, R_OK)!=-1) {
         fp = open(req_file, 'r');
-        if(read(fp, buffer, BUFFER_SIZE)>0) {
-            send_res(sock, buffer, 200, "OK", CON_TYPE[ext_index]);
-            return;
-        } 
+        n = lseek(fp, 0, SEEK_END);
+        lseek(fp, 0, SEEK_SET);
+        sprintf(buffer, "HTTP/1.1 %d %s\r\nServer: Flysk Web Server\r\nContent-Length: %d\r\nConnection: close\r\nContent-Type: %s\r\n\r\n", 200, "OK", n, extensions[ext_index].con_type);
+        write(sock, buffer, strlen(buffer));
+        while((ret=read(fp, buffer, BUFFER_SIZE))>0) {
+            write(sock, buffer, ret);
+        }
+        close(sock);
+        close(fp);
+        return;
     }
     not_found(sock);
     return;
@@ -116,10 +146,9 @@ void handle_req(int sock)
 
 void send_res(int sock, char *content, int stacode, char *stadsp, char *content_type)
 {
-    char res[500];
-    int n;
+    char res[BUFFER_SIZE];
+    int n, ret, len;
     sprintf(res, "HTTP/1.1 %d %s\r\nServer: Flysk Web Server\r\nContent-Length: %d\r\nConnection: close\r\nContent-Type: %s\r\n\r\n", stacode, stadsp, strlen(content), content_type);
-    //printf("response:%s\n", res);
     n = write(sock, res, strlen(res));
     if(n<0)err("ERR writing socket.");
     n = write(sock, content, strlen(content));

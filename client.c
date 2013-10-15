@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     char buffer[BUFFER_SIZE];
     if(argc < 3)
     {
-        fprintf(stderr, "usage %s hostname port", argv[0]);
+        fprintf(stderr, "usage %s hostname port\n", argv[0]);
         exit(0);
     }
     portno = atoi(argv[2]);
